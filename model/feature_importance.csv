@@ -1,0 +1,18 @@
+feature,importance
+satisfaction_score,0.2756
+contract_type_Two year,0.177
+contract_type_One year,0.1073
+monthly_charges,0.0934
+support_tickets,0.0823
+avg_monthly_usage_gb,0.0816
+total_charges,0.0552
+tenure_months,0.055
+payment_method_Electronic check,0.0327
+internet_service_Fiber optic,0.0164
+num_dependents,0.0079
+senior_citizen,0.0052
+paperless_billing,0.003
+autopay,0.0027
+payment_method_Credit card,0.0021
+payment_method_Mailed check,0.0014
+internet_service_No,0.0011

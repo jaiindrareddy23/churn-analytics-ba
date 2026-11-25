@@ -1,0 +1,18 @@
+feature,coefficient
+contract_type_Two year,-0.814
+contract_type_One year,-0.4388
+satisfaction_score,-0.4241
+support_tickets,0.3472
+payment_method_Electronic check,0.2375
+tenure_months,-0.1791
+monthly_charges,0.1546
+internet_service_Fiber optic,0.148
+senior_citizen,-0.092
+total_charges,-0.0877
+autopay,-0.0349
+internet_service_No,-0.0294
+payment_method_Credit card,0.012
+paperless_billing,-0.011
+num_dependents,-0.0083
+payment_method_Mailed check,0.0034
+avg_monthly_usage_gb,-0.0017

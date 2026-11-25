@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Churn Analytics Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --accent2: #f472b6;
+    --accent3: #34d399;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    padding: 16px;
+  }
+  header { max-width: 1100px; margin: 0 auto 24px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); font-size: 0.95rem; }
+  .grid {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+  }
+  .card h2 { font-size: 1.05rem; margin: 0 0 4px; }
+  .card p.desc { color: var(--muted); font-size: 0.85rem; margin: 0 0 14px; }
+  .card.wide { grid-column: 1 / -1; }
+  .stat-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .stat {
+    background: #0b1220;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    min-width: 140px;
+  }
+  .stat .label { font-size: 0.75rem; color: var(--muted); }
+  .stat .value { font-size: 1.4rem; font-weight: 600; }
+  canvas { max-width: 100%; }
+  footer {
+    max-width: 1100px;
+    margin: 24px auto 0;
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Churn Analytics &amp; Cohort Retention</h1>
+  <div class="subtitle">
+    Static dashboard built from real SQL query results and a trained scikit-learn model
+    &mdash; no live backend, numbers are baked in at build time.
+  </div>
+</header>
+
+<div class="grid">
+
+  <div class="card">
+    <h2>Average Retention Curve</h2>
+    <p class="desc">Share of customers still active, by months since signup, weighted across all cohorts.</p>
+    <canvas id="retentionChart" height="260"></canvas>
+  </div>
+
+  <div class="card">
+    <h2>Churn Rate by Contract &amp; Tenure</h2>
+    <p class="desc">Churn rate (%) across contract type and tenure bucket.</p>
+    <canvas id="churnChart" height="260"></canvas>
+  </div>
+
+  <div class="card wide">
+    <h2>Revenue at Risk by Segment</h2>
+    <p class="desc">
+      Lost monthly recurring revenue (already churned) plus at-risk MRR from active customers,
+      by contract type &times; internet service segment.
+    </p>
+    <div class="stat-row" id="riskStats"></div>
+    <canvas id="revenueChart" height="200"></canvas>
+  </div>
+
+</div>
+
+<footer>
+  churn-analytics-ba &mdash; data generated synthetically (data/generate_data.py), aggregated via sql/*.sql,
+  modeled in model/train_model.py. See the project README for methodology and caveats.
+</footer>
+
+<script id="dashboard-data" type="application/json">
+{
+  "retention_curve": [
+    {
+      "months_since_signup": 0,
+      "avg_retention_pct": 99.2
+    },
+    {
+      "months_since_signup": 1,
+      "avg_retention_pct": 98.1
+    },
+    {
+      "months_since_signup": 3,
+      "avg_retention_pct": 95.3
+    },
+    {
+      "months_since_signup": 6,
+      "avg_retention_pct": 96.2
+    },
+    {
+      "months_since_signup": 12,
+      "avg_retention_pct": 87.6
+    }
+  ],
+  "churn_by_contract_tenure": [
+    {
+      "contract_type": "Month-to-month",
+      "tenure_bucket": "0-5 mo",
+      "num_customers": 302,
+      "num_churned": 171,
+      "churn_rate_pct": 56.6
+    },
+    {
+      "contract_type": "Month-to-month",
+      "tenure_bucket": "6-11 mo",
+      "num_customers": 435,
+      "num_churned": 238,
+      "churn_rate_pct": 54.7
+    },
+    {
+      "contract_type": "Month-to-month",
+      "tenure_bucket": "12-23 mo",
+      "num_customers": 1823,
+      "num_churned": 798,
+      "churn_rate_pct": 43.8
+    },
+    {
+      "contract_type": "Month-to-month",
+      "tenure_bucket": "24+ mo",
+      "num_customers": 138,
+      "num_churned": 42,
+      "churn_rate_pct": 30.4
+    },
+    {
+      "contract_type": "One year",
+      "tenure_bucket": "0-5 mo",
+      "num_customers": 148,
+      "num_churned": 52,
+      "churn_rate_pct": 35.1
+    },
+    {
+      "contract_type": "One year",
+      "tenure_bucket": "6-11 mo",
+      "num_customers": 236,
+      "num_churned": 66,
+      "churn_rate_pct": 28.0
+    },
+    {
+      "contract_type": "One year",
+      "tenure_bucket": "12-23 mo",
+      "num_customers": 933,
+      "num_churned": 202,
+      "churn_rate_pct": 21.7
+    },
+    {
+      "contract_type": "One year",
+      "tenure_bucket": "24+ mo",
+      "num_customers": 61,
+      "num_churned": 7,
+      "churn_rate_pct": 11.5
+    },
+    {
+      "contract_type": "Two year",
+      "tenure_bucket": "0-5 mo",
+      "num_customers": 106,
+      "num_churned": 16,
+      "churn_rate_pct": 15.1
+    },
+    {
+      "contract_type": "Two year",
+      "tenure_bucket": "6-11 mo",
+      "num_customers": 171,
+      "num_churned": 19,
+      "churn_rate_pct": 11.1
+    },
+    {
+      "contract_type": "Two year",
+      "tenure_bucket": "12-23 mo",
+      "num_customers": 603,
+      "num_churned": 52,
+      "churn_rate_pct": 8.6
+    },
+    {
+      "contract_type": "Two year",
+      "tenure_bucket": "24+ mo",
+      "num_customers": 44,
+      "num_churned": 3,
+      "churn_rate_pct": 6.8
+    }
+  ],
+  "revenue_at_risk": [
+    {
+      "contract_type": "Month-to-month",
+      "internet_service": "Fiber optic",
+      "segment_customers": 1215,
+      "segment_churned": 648,
+      "churn_rate_pct": 53.3,
+      "lost_mrr": 50503.22,
+      "at_risk_mrr_active": 23299.66,
+      "total_revenue_at_risk": 73802.88
+    },
+    {
+      "contract_type": "Month-to-month",
+      "internet_service": "DSL",
+      "segment_customers": 880,
+      "segment_churned": 374,
+      "churn_rate_pct": 42.5,
+      "lost_mrr": 24010.77,
+      "at_risk_mrr_active": 13657.72,
+      "total_revenue_at_risk": 37668.49
+    },
+    {
+      "contract_type": "One year",
+      "internet_service": "Fiber optic",
+      "segment_customers": 599,
+      "segment_churned": 159,
+      "churn_rate_pct": 26.5,
+      "lost_mrr": 12108.53,
+      "at_risk_mrr_active": 8906.71,
+      "total_revenue_at_risk": 21015.24
+    },
+    {
+      "contract_type": "Month-to-month",
+      "internet_service": "No",
+      "segment_customers": 603,
+      "segment_churned": 227,
+      "churn_rate_pct": 37.6,
+      "lost_mrr": 12446.84,
+      "at_risk_mrr_active": 7628.53,
+      "total_revenue_at_risk": 20075.37
+    },
+    {
+      "contract_type": "One year",
+      "internet_service": "DSL",
+      "segment_customers": 481,
+      "segment_churned": 103,
+      "churn_rate_pct": 21.4,
+      "lost_mrr": 6590.33,
+      "at_risk_mrr_active": 5123.59,
+      "total_revenue_at_risk": 11713.92
+    },
+    {
+      "contract_type": "One year",
+      "internet_service": "No",
+      "segment_customers": 298,
+      "segment_churned": 65,
+      "churn_rate_pct": 21.8,
+      "lost_mrr": 3729.68,
+      "at_risk_mrr_active": 2765.42,
+      "total_revenue_at_risk": 6495.1
+    },
+    {
+      "contract_type": "Two year",
+      "internet_service": "Fiber optic",
+      "segment_customers": 399,
+      "segment_churned": 44,
+      "churn_rate_pct": 11.0,
+      "lost_mrr": 3391.24,
+      "at_risk_mrr_active": 2968.24,
+      "total_revenue_at_risk": 6359.48
+    },
+    {
+      "contract_type": "Two year",
+      "internet_service": "DSL",
+      "segment_customers": 306,
+      "segment_churned": 26,
+      "churn_rate_pct": 8.5,
+      "lost_mrr": 1703.38,
+      "at_risk_mrr_active": 1499.63,
+      "total_revenue_at_risk": 3203.01
+    },
+    {
+      "contract_type": "Two year",
+      "internet_service": "No",
+      "segment_customers": 219,
+      "segment_churned": 20,
+      "churn_rate_pct": 9.1,
+      "lost_mrr": 1139.4,
+      "at_risk_mrr_active": 999.0,
+      "total_revenue_at_risk": 2138.4
+    }
+  ],
+  "model_metrics": [
+    {
+      "model": "Logistic Regression",
+      "accuracy": 0.7288,
+      "precision": 0.6453,
+      "recall": 0.4111,
+      "f1": 0.5022,
+      "roc_auc": 0.781
+    },
+    {
+      "model": "Gradient Boosting",
+      "accuracy": 0.724,
+      "precision": 0.6392,
+      "recall": 0.3918,
+      "f1": 0.4858,
+      "roc_auc": 0.7725
+    }
+  ]
+}
+</script>
+
+<script>
+const DATA = JSON.parse(document.getElementById('dashboard-data').textContent);
+
+const palette = {
+  blue: '#38bdf8',
+  pink: '#f472b6',
+  green: '#34d399',
+  amber: '#fbbf24',
+  grid: 'rgba(148,163,184,0.15)',
+  text: '#e2e8f0',
+};
+
+Chart.defaults.color = palette.text;
+Chart.defaults.borderColor = palette.grid;
+Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+
+new Chart(document.getElementById('retentionChart'), {
+  type: 'line',
+  data: {
+    labels: DATA.retention_curve.map(r => `Month ${r.months_since_signup}`),
+    datasets: [{
+      label: 'Avg. retention %',
+      data: DATA.retention_curve.map(r => r.avg_retention_pct),
+      borderColor: palette.blue,
+      backgroundColor: 'rgba(56,189,248,0.15)',
+      fill: true,
+      tension: 0.25,
+      pointRadius: 4,
+    }],
+  },
+  options: {
+    scales: {
+      y: { min: 0, max: 100, ticks: { callback: v => v + '%' } },
+    },
+    plugins: { legend: { display: false } },
+  },
+});
+
+const contractColors = { 'Month-to-month': palette.pink, 'One year': palette.amber, 'Two year': palette.green };
+const contractTypes = [...new Set(DATA.churn_by_contract_tenure.map(r => r.contract_type))];
+const tenureBuckets = [...new Set(DATA.churn_by_contract_tenure.map(r => r.tenure_bucket))];
+
+new Chart(document.getElementById('churnChart'), {
+  type: 'bar',
+  data: {
+    labels: tenureBuckets,
+    datasets: contractTypes.map(ct => ({
+      label: ct,
+      data: tenureBuckets.map(tb => {
+        const row = DATA.churn_by_contract_tenure.find(r => r.contract_type === ct && r.tenure_bucket === tb);
+        return row ? row.churn_rate_pct : null;
+      }),
+      backgroundColor: contractColors[ct] || palette.blue,
+    })),
+  },
+  options: {
+    scales: { y: { min: 0, ticks: { callback: v => v + '%' } } },
+    plugins: { legend: { position: 'bottom' } },
+  },
+});
+
+new Chart(document.getElementById('revenueChart'), {
+  type: 'bar',
+  data: {
+    labels: DATA.revenue_at_risk.map(r => `${r.contract_type} / ${r.internet_service}`),
+    datasets: [
+      { label: 'Lost MRR (churned)', data: DATA.revenue_at_risk.map(r => r.lost_mrr), backgroundColor: palette.pink },
+      { label: 'At-risk MRR (active)', data: DATA.revenue_at_risk.map(r => r.at_risk_mrr_active), backgroundColor: palette.amber },
+    ],
+  },
+  options: {
+    indexAxis: 'y',
+    scales: { x: { stacked: true, ticks: { callback: v => '$' + v.toLocaleString() } }, y: { stacked: true } },
+    plugins: { legend: { position: 'bottom' } },
+  },
+});
+
+const topRisk = DATA.revenue_at_risk[0];
+const totalAtRisk = DATA.revenue_at_risk.reduce((s, r) => s + r.total_revenue_at_risk, 0);
+const statsHost = document.getElementById('riskStats');
+const stats = [
+  { label: 'Highest-risk segment', value: `${topRisk.contract_type} / ${topRisk.internet_service}` },
+  { label: 'That segment’s revenue at risk', value: `$${topRisk.total_revenue_at_risk.toLocaleString()}` },
+  { label: 'Total revenue at risk (all segments)', value: `$${totalAtRisk.toLocaleString(undefined, {maximumFractionDigits: 0})}` },
+];
+stats.forEach(s => {
+  const div = document.createElement('div');
+  div.className = 'stat';
+  div.innerHTML = `<div class="label">${s.label}</div><div class="value">${s.value}</div>`;
+  statsHost.appendChild(div);
+});
+</script>
+</body>
+</html>
